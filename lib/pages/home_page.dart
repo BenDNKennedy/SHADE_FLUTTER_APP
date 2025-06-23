@@ -23,6 +23,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   double? solarIndex;
   double? projectedPower;
+  double maxSystemPower = 0;
   bool isConnected = false;
   bool hasData = false;
   Timer? _timer;
@@ -47,6 +48,7 @@ class _HomePageState extends State<HomePage> {
           print('Loaded config: ${config.toJson()}');
           print('Base power: ${config.projectedPowerWatts}');
 
+          maxSystemPower = config.projectedPowerWatts;
           projectedPower = config.projectedPowerWatts * solarIndex!;
           hasData = true;
 
@@ -130,7 +132,10 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20),
             SizedBox(
               height: 200,
-              child: PowerLineChart(data: powerHistory),
+              child: PowerLineChart(
+                data: powerHistory,
+                maxSystemPower: maxSystemPower,
+              ),
             )
           ],
         ),

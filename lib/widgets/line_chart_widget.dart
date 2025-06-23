@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 
 class PowerLineChart extends StatelessWidget {
   final List<FlSpot> data;
+  final double maxSystemPower;
 
-  const PowerLineChart({super.key, required this.data});
+  const PowerLineChart({super.key, required this.data, required this.maxSystemPower});
 
   @override
   Widget build(BuildContext context) {
@@ -12,9 +13,11 @@ class PowerLineChart extends StatelessWidget {
 
     final minX = data.first.x;
     final maxX = data.last.x;
+
     final yValues = data.map((e) => e.y);
-    final minY = yValues.reduce((a, b) => a < b ? a : b);
-    final maxY = yValues.reduce((a, b) => a > b ? a : b);
+    final rawMinY = yValues.reduce((a, b) => a < b ? a : b);
+    final minY = 0.0;
+    final maxY = maxSystemPower.ceilToDouble();
 
     return AspectRatio(
       aspectRatio: 1.6,
@@ -28,7 +31,12 @@ class PowerLineChart extends StatelessWidget {
           borderData: FlBorderData(show: true),
           titlesData: FlTitlesData(
             leftTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                interval: maxY / 5,
+                getTitlesWidget: (value, _) => Text('${value.toInt()}'),
+              ),
             ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(showTitles: true, reservedSize: 22),
