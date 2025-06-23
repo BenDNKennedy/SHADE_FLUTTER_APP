@@ -17,6 +17,17 @@ class PrefsService {
     await prefs.setBool(_mpptKey, config.mpptEnabled);
   }
 
+  Future<void> saveEspIp(String ip) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('espIp', ip);
+  }
+
+  Future<String?> loadEspIp() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('espIp');
+  }
+
+
   Future<SetupConfig> loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
 

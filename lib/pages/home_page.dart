@@ -9,6 +9,8 @@ import '../models/setup_config.dart';
 import '../services/prefs_service.dart';
 import '../services/network_service.dart';
 import 'setup_page.dart';
+import 'network_page.dart'; // ← ✅ Must be present
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -93,6 +95,15 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: fetchData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.wifi_tethering),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NetworkPage()),
+              );
+            },
           ),
         ],
       ),
