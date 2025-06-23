@@ -10,7 +10,8 @@ import '../services/prefs_service.dart';
 import '../services/network_service.dart';
 import 'setup_page.dart';
 import 'network_page.dart'; // ← ✅ Must be present
-
+import 'package:fl_chart/fl_chart.dart';
+import '../widgets/line_chart_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,6 +26,8 @@ class _HomePageState extends State<HomePage> {
   bool isConnected = false;
   bool hasData = false;
   Timer? _timer;
+  final List<FlSpot> powerHistory = [];
+  int timeStep = 0;
 
   Future<void> fetchData() async {
     try {
@@ -46,6 +49,12 @@ class _HomePageState extends State<HomePage> {
 
           projectedPower = config.projectedPowerWatts * solarIndex!;
           hasData = true;
+
+          powerHistory.add(FlSpot(timeStep.toDouble(), projectedPower ?? 0));
+          if (powerHistory.length > 30) {
+            powerHistory.removeAt(0);
+          }
+          timeStep++;
         } else {
           hasData = false;
         }
@@ -118,6 +127,11 @@ class _HomePageState extends State<HomePage> {
             Text('☀️ Solar Index: ${solarIndex?.toStringAsFixed(2)}'),
             const SizedBox(height: 10),
             Text('⚡ Projected Power: ${projectedPower?.toStringAsFixed(2)} W'),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 200,
+              child: PowerLineChart(data: powerHistory),
+            )
           ],
         ),
       ),
