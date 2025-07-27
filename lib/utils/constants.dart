@@ -7,7 +7,7 @@ class AppConstants {
   static const defaultPanelWattage = 370.0;
   static const defaultMpptBoost = 1.05;
 
-  static const espIp = '192.168.1.174'; // Default for testing
+  static const espIp = '192.168.1.144'; // Default for testing
 
   static const panelOptions = [
     300.0,

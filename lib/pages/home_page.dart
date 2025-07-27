@@ -10,6 +10,13 @@ import '../services/prefs_service.dart';
 import '../services/network_service.dart';
 import 'setup_page.dart';
 import 'network_page.dart'; // ← ✅ Must be present
+import 'package:fl_chart/fl_chart.dart';
+import '../widgets/line_chart_widget.dart';
+import '../enums/time_range.dart';
+import '../models/solar_data.dart';
+import '../services/db_service.dart';
+import '../widgets/historical_chart.dart';
+import '../models/averaged_data.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -20,11 +27,20 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late Future<List<AveragedData>> averagedDataFuture;
   double? solarIndex;
   double? projectedPower;
+  double maxSystemPower = 0;
   bool isConnected = false;
   bool hasData = false;
   Timer? _timer;
+  final List<FlSpot> powerHistory = [];
+  int timeStep = 0;
+  double totalEnergyWh = 0.0;
+
+  TimeRange selectedRange = TimeRange.daily;
+  List<SolarData> historicalData = [];
+
 
   Future<void> fetchData() async {
     try {
@@ -37,6 +53,7 @@ class _HomePageState extends State<HomePage> {
         final data = json.decode(response.body);
         print('Received: $data');
 
+
         if (data['solar_index'] != null) {
           solarIndex = (data['solar_index'] as num).toDouble();
 
@@ -44,8 +61,22 @@ class _HomePageState extends State<HomePage> {
           print('Loaded config: ${config.toJson()}');
           print('Base power: ${config.projectedPowerWatts}');
 
+          maxSystemPower = config.projectedPowerWatts;
           projectedPower = config.projectedPowerWatts * solarIndex!;
           hasData = true;
+
+          if (projectedPower != null) {
+            setState(() {
+              print('⏱️ Added ${projectedPower! * (5.0 / 3600.0)} Wh, total: $totalEnergyWh');
+              totalEnergyWh += (projectedPower! * (5.0 / 3600.0));
+            });
+          }
+
+          powerHistory.add(FlSpot(timeStep.toDouble(), projectedPower ?? 0));
+          if (powerHistory.length > 30) {
+            powerHistory.removeAt(0);
+          }
+          timeStep++;
         } else {
           hasData = false;
         }
@@ -66,6 +97,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     fetchData();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) => fetchData());
+    averagedDataFuture = DBService().getPrecomputedData(selectedRange);
   }
 
   @override
@@ -82,9 +114,124 @@ class _HomePageState extends State<HomePage> {
     fetchData(); // Refresh config on return
   }
 
+
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Home'),
+          bottom: const TabBar(tabs: [
+            Tab(text: 'Live'),
+            Tab(text: 'History'),
+          ]),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: _openSetupPage,
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: fetchData,
+            ),
+            IconButton(
+              icon: const Icon(Icons.wifi_tethering),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NetworkPage()),
+                );
+              },
+            ),
+          ], // your existing buttons
+        ),
+        body: TabBarView(
+          children: [
+            // Tab 1: Live view (unchanged)
+            Center(
+              child: !isConnected
+                  ? const Text('❌ Disconnected from ESP')
+                  : !hasData
+                  ? const Text('⚠️ Connected, but no data')
+                  : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('☀️ Solar Index: ${solarIndex?.toStringAsFixed(2)}'),
+                  const SizedBox(height: 10),
+                  Text('⚡ Projected Power: ${projectedPower?.toStringAsFixed(2)} W'),
+                  const SizedBox(height: 20),
+                  Text('💰 Money Saved: \$${(totalEnergyWh / 1000 * 0.12).toStringAsFixed(4)}'),       // 0.12 is the bc hydro price per kwh
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 200,
+                    child: PowerLineChart(
+                      data: powerHistory,
+                      maxSystemPower: maxSystemPower,
+                    ),
+                  )
+                ],
+              ),
+            ),
+
+            // Tab 2: Historical graph view
+            Column(
+              children: [
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: TimeRange.values.map((range) {
+                    return ChoiceChip(
+                      label: Text(range.label),
+                      selected: selectedRange == range,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() {
+                            selectedRange = range;
+                            averagedDataFuture = DBService().getPrecomputedData(range);
+                          });
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: FutureBuilder(
+                    future: averagedDataFuture,
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final data = snapshot.data!;
+                      final totalSaved = data.fold(0.0, (sum, d) => sum + (d.moneySaved ?? 0));
+
+                      return Column(
+                        children: [
+                          Text(
+                            '💰 Money Saved: \$${totalSaved.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 8),
+                          Expanded(child: HistoricalChart(data: data, range: selectedRange)),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // old code
+    /*
+      Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
@@ -118,9 +265,19 @@ class _HomePageState extends State<HomePage> {
             Text('☀️ Solar Index: ${solarIndex?.toStringAsFixed(2)}'),
             const SizedBox(height: 10),
             Text('⚡ Projected Power: ${projectedPower?.toStringAsFixed(2)} W'),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 200,
+              child: PowerLineChart(
+                data: powerHistory,
+                maxSystemPower: maxSystemPower,
+              ),
+            )
           ],
         ),
       ),
     );
+
+     */
   }
 }
