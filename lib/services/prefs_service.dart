@@ -4,6 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/setup_config.dart';
 
 class PrefsService {
+  static final PrefsService instance = PrefsService._internal();
+  factory PrefsService() => instance;
+  PrefsService._internal();
+
   static const _roofAreaKey = 'roof_area';
   static const _efficiencyKey = 'efficiency';
   static const _wattageKey = 'wattage';
