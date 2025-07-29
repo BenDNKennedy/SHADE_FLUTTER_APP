@@ -17,6 +17,8 @@ import '../models/solar_data.dart';
 import '../services/db_service.dart';
 import '../widgets/historical_chart.dart';
 import '../models/averaged_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 
 class HomePage extends StatefulWidget {
@@ -44,8 +46,11 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> fetchData() async {
     try {
-      final uri = Uri.parse('http://${AppConstants.espIp}/solar');
-      final response = await http.get(uri);
+      // final uri = Uri.parse('http://${AppConstants.espIp}/solar');
+      final ip = await PrefsService.instance.loadEspIp() ?? '172.20.10.6';
+      final uri = Uri.parse('http://$ip/solar');
+      print("🌐 Trying ESP at $ip");
+      final response = await http.get(uri).timeout(const Duration(seconds: 3));
 
       isConnected = response.statusCode == 200;
 
@@ -57,7 +62,7 @@ class _HomePageState extends State<HomePage> {
         if (data['solar_index'] != null) {
           solarIndex = (data['solar_index'] as num).toDouble();
 
-          final config = await PrefsService().loadConfig();
+          final config = await PrefsService.instance.loadConfig();
           print('Loaded config: ${config.toJson()}');
           print('Base power: ${config.projectedPowerWatts}');
 
@@ -66,10 +71,9 @@ class _HomePageState extends State<HomePage> {
           hasData = true;
 
           if (projectedPower != null) {
-            setState(() {
-              print('⏱️ Added ${projectedPower! * (5.0 / 3600.0)} Wh, total: $totalEnergyWh');
-              totalEnergyWh += (projectedPower! * (5.0 / 3600.0));
-            });
+            final addedWh = projectedPower! * (5.0 / 3600.0);
+            totalEnergyWh += addedWh;
+            print('⏱️ Added ${projectedPower! * (5.0 / 3600.0)} Wh, total: $totalEnergyWh');
           }
 
           powerHistory.add(FlSpot(timeStep.toDouble(), projectedPower ?? 0));
@@ -91,6 +95,13 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {});
   }
+
+  Future<void> saveEspIp(String ip) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('espIp', ip);
+    print("💾 Saved new ESP IP: $ip");  // ✅ debug
+  }
+
 
   @override
   void initState() {
@@ -138,11 +149,12 @@ class _HomePageState extends State<HomePage> {
             ),
             IconButton(
               icon: const Icon(Icons.wifi_tethering),
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const NetworkPage()),
                 );
+                await fetchData();
               },
             ),
           ], // your existing buttons
