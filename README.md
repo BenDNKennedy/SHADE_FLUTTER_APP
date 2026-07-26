@@ -10,7 +10,6 @@ node you leave in place across all four seasons to measure that directly — and
 read it.
 
 **ECE 499: Design Project 2 — University of Victoria, Group 16 (2025)**
-Project site: <https://shadesolardevice.wixsite.com/shade>
 
 ---
 
